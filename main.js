@@ -16,12 +16,13 @@ for (let y = 0; y < MAP_HEIGHT; y++) {
 }
 
 const player = {
-  resources: { gold: 100 },
+  resources: { gold: 200 },
   units: [],
-  buildings: []
+  buildings: [],
+  selectedTile: null
 };
 
-const enemies = [];
+let enemies = [];
 
 function updateUI() {
   document.getElementById('resources').innerText = `Gold: ${Math.floor(player.resources.gold)}`;
@@ -39,19 +40,16 @@ function drawMap() {
   }
 }
 
-function spawnUnit(x, y, type = 'worker') {
-  player.units.push({ type, x, y, task: null, target: null, hp: 3 });
-}
-
-function spawnEnemy() {
-  const x = Math.floor(Math.random() * MAP_WIDTH);
-  const y = Math.floor(Math.random() * MAP_HEIGHT);
-  enemies.push({ x, y, hp: 3 });
+function drawBuildings() {
+  for (let building of player.buildings) {
+    ctx.fillStyle = building.type === 'base' ? '#5555ff' : '#888';
+    ctx.fillRect(building.x * TILE_SIZE + 5, building.y * TILE_SIZE + 5, TILE_SIZE - 10, TILE_SIZE - 10);
+  }
 }
 
 function drawUnits() {
   for (let unit of player.units) {
-    ctx.fillStyle = 'yellow';
+    ctx.fillStyle = unit.type === 'worker' ? 'yellow' : 'cyan';
     ctx.beginPath();
     ctx.arc(unit.x * TILE_SIZE + TILE_SIZE / 2, unit.y * TILE_SIZE + TILE_SIZE / 2, 10, 0, Math.PI * 2);
     ctx.fill();
@@ -69,15 +67,28 @@ function updateUnits() {
   for (let unit of player.units) {
     if (unit.task === 'mine') {
       if (map[unit.y][unit.x].type === 'gold') {
-        player.resources.gold += 0.1; // slowly mine gold
+        player.resources.gold += 0.1;
+      }
+    } else if (unit.task === 'attack') {
+      for (let enemy of enemies) {
+        const dx = enemy.x - unit.x;
+        const dy = enemy.y - unit.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist <= 1.5) {
+          enemy.hp -= 0.1;
+        } else {
+          unit.x += Math.sign(dx);
+          unit.y += Math.sign(dy);
+        }
       }
     }
   }
+
+  enemies = enemies.filter(e => e.hp > 0);
 }
 
 function updateEnemies() {
   for (let enemy of enemies) {
-    // Try to find closest player unit
     let closest = null;
     let minDist = Infinity;
     for (let unit of player.units) {
@@ -91,24 +102,20 @@ function updateEnemies() {
     }
 
     if (closest && minDist <= 1.5) {
-      // Attack
       closest.hp -= 0.05;
     } else if (closest) {
-      // Move towards player
-      const dx = Math.sign(closest.x - enemy.x);
-      const dy = Math.sign(closest.y - enemy.y);
-      enemy.x += dx;
-      enemy.y += dy;
+      enemy.x += Math.sign(closest.x - enemy.x);
+      enemy.y += Math.sign(closest.y - enemy.y);
     }
   }
 
-  // Remove dead player units
   player.units = player.units.filter(u => u.hp > 0);
 }
 
 function gameLoop() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawMap();
+  drawBuildings();
   updateUnits();
   updateEnemies();
   drawUnits();
@@ -119,15 +126,27 @@ function gameLoop() {
 canvas.addEventListener('click', (e) => {
   const x = Math.floor(e.offsetX / TILE_SIZE);
   const y = Math.floor(e.offsetY / TILE_SIZE);
-  const existing = player.units.find(u => u.x === x && u.y === y);
-  if (!existing) {
-    spawnUnit(x, y);
-  } else {
-    existing.task = map[y][x].type === 'gold' ? 'mine' : null;
+
+  if (!player.buildings.find(b => b.x === x && b.y === y)) {
+    if (!player.selectedTile) {
+      player.buildings.push({ type: 'base', x, y });
+      player.selectedTile = { x, y };
+    } else if (player.resources.gold >= 50) {
+      player.units.push({ type: 'worker', x, y, hp: 3, task: 'mine' });
+      player.resources.gold -= 50;
+    } else if (player.resources.gold >= 100) {
+      player.units.push({ type: 'soldier', x, y, hp: 5, task: 'attack' });
+      player.resources.gold -= 100;
+    }
   }
 });
 
-setInterval(spawnEnemy, 5000); // Spawn an enemy every 5 seconds
+function spawnEnemy() {
+  const x = Math.floor(Math.random() * MAP_WIDTH);
+  const y = Math.floor(Math.random() * MAP_HEIGHT);
+  enemies.push({ x, y, hp: 5 });
+}
 
+setInterval(spawnEnemy, 7000);
 updateUI();
 gameLoop();
