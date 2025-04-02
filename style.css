@@ -1,0 +1,24 @@
+body {
+  margin: 0;
+  background-color: #111;
+  font-family: Arial, sans-serif;
+  color: #fff;
+}
+
+#ui {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 10px;
+  border: 1px solid #555;
+  border-radius: 5px;
+  z-index: 2;
+}
+
+canvas {
+  display: block;
+  margin: auto;
+  background: #1e1e1e;
+  border: 1px solid #444;
+}
